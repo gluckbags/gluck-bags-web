@@ -21,6 +21,23 @@ if TYPE_CHECKING:
     from app.services.tiendanube_client import TiendaNubeClient
 
 
+def _after_write(tn_id: int | None = None) -> None:
+    """Everything a mirror write has to trigger, in this order.
+
+    The snapshot is written before the purge: purging first would let the CDN
+    revalidate against a snapshot that is still the old one.
+    """
+    from app.services import catalog_cache, catalog_snapshot, cdn_cache
+
+    catalog_cache.invalidate()
+    try:
+        rows = TiendaNubeProduct.query.filter_by(published=True).all()
+        catalog_snapshot.save([catalog_snapshot.ProductSnapshot.from_row(row) for row in rows])
+    except Exception:  # noqa: BLE001 — the mirror write already succeeded
+        pass
+    cdn_cache.purge_catalog(tn_id)
+
+
 @dataclass
 class SyncResult:
     """What a sync did — handy for logging and for the spike/admin to report."""
@@ -73,6 +90,7 @@ def sync_products(client: "TiendaNubeClient", *, prune: bool = True) -> SyncResu
                 result.pruned += 1
 
     db.session.commit()
+    _after_write()
     return result
 
 
@@ -88,6 +106,7 @@ def upsert_product(payload: dict) -> TiendaNubeProduct:
         db.session.add(row)
     row.apply_payload(payload)
     db.session.commit()
+    _after_write(tn_id)
     return row
 
 
@@ -101,4 +120,5 @@ def delete_product(tn_id: int) -> bool:
         return False
     db.session.delete(row)
     db.session.commit()
+    _after_write(int(tn_id))
     return True

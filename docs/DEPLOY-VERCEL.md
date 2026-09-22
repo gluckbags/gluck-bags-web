@@ -15,7 +15,8 @@ behaviour, so the same code runs both ways.
 | Uploaded media | `DATA_DIR/media`, served by `/media` | Vercel Blob's CDN | `MEDIA_STORE` |
 | Schema creation | at boot | `flask init-db`, once | `AUTO_INIT_DB` |
 | Static assets | served by Flask | `public/`, served by the CDN | build step |
-| Hourly TN sync | daemon thread | GitHub Actions → `/internal/sync-tn` | `TN_SYNC_ENABLED` |
+| TN sync | daemon thread | webhooks, plus a manual GitHub Actions run | `TN_SYNC_ENABLED` |
+| Public pages | rendered per request | cached on the CDN, purged by tag | `PAGE_CACHE_TTL` |
 | Admin uploads | multipart POST | browser → Blob, direct | follows `MEDIA_STORE` |
 | ffmpeg | system package | `imageio-ffmpeg` wheel | `FFMPEG_BINARY` |
 
@@ -81,6 +82,9 @@ MEDIA_STORE=blob
 AUTO_INIT_DB=0
 TN_SYNC_ENABLED=0
 CRON_SECRET               shared with the GitHub Actions workflow
+VERCEL_PURGE_TOKEN        a Vercel token with access to this project (CDN purge)
+VERCEL_PROJECT_ID         prj_… of this project
+VERCEL_TEAM_ID            team_… that owns it
 ```
 
 Carried over from the current deploy:
@@ -110,8 +114,24 @@ bytes) and `Media.path` resolves to a Blob URL. That URL is derived from the sto
 inside the token, so rendering a page makes no API calls.
 
 **`TN_SYNC_ENABLED=0`.** The in-process scheduler needs a process that outlives the
-request. `.github/workflows/sync-tiendanube.yml` calls `/internal/sync-tn` hourly
-instead, which also keeps the schedule in version control.
+request. `.github/workflows/sync-tiendanube.yml` calls `/internal/sync-tn` instead, on
+demand — it has no schedule. The mirror is kept current by the Tienda Nube webhooks;
+the workflow is the manual reconciliation for whatever they miss. It used to run
+hourly, and that is part of what exhausted Neon's free tier on 2026-09-22: every
+connection keeps the compute awake for five more minutes, so 24 runs a day burned
+CU-hours for visits that never happened.
+
+**The CDN cache.** `app/services/page_cache.py` marks the public pages cacheable and
+`app/services/cdn_cache.py` purges them by tag when a product or a text changes. This is
+the main defence of the database: a cached visit never reaches the function. Two things
+break it, both worth knowing before touching a public view — reading the session makes
+Flask send `Vary: Cookie`, and anything that sets a cookie disqualifies the response.
+Vercel refuses to cache either. That is why the header's cart badge is hydrated by
+`cart.js` instead of rendered server side.
+
+**`VERCEL_PURGE_TOKEN` / `VERCEL_PROJECT_ID` / `VERCEL_TEAM_ID`.** What the purge needs.
+Without them nothing is purged and `PAGE_CACHE_TTL` becomes the only freshness
+guarantee, which is why an edit that does not show up within a day points here first.
 
 **Admin uploads.** A function's request body is capped at 4.5 MB — less than one phone
 photo. When `MEDIA_STORE` is not local, the admin form asks

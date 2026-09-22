@@ -317,14 +317,21 @@ def register_content(app: "Flask") -> None:
     editor at /admin/content, and the response rewrite), then add the app-specific
     category globals. Must run AFTER Compress(app) so the editor's HTML rewrite sees an
     uncompressed body. Reuses the admin's shared-password session."""
+    from sitecopy.storage import SQLAlchemyStore
+
     from app.auth import is_logged_in as _admin_is_logged_in
     from app.auth import login_required as _admin_login_required
+    from app.content.store import CachingTextStore
     from app.factory import db
 
     _extension.init_app(
         app,
         registry=REGISTRY,
         db=db,
+        # sitecopy reloads the overrides once per request; on Neon's free tier that is
+        # a connection per rendered page. The wrapper holds them for a short TTL and
+        # drops them on every save.
+        store=CachingTextStore(SQLAlchemyStore(db)),
         login_required=_admin_login_required,
         is_logged_in=_admin_is_logged_in,
         site_url=app.config.get("SITE_URL", ""),

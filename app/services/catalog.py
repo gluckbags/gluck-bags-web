@@ -157,7 +157,9 @@ class StorefrontProduct:
     the checkout resolver maps them straight to variants.
     """
 
-    def __init__(self, row: TiendaNubeProduct) -> None:
+    def __init__(self, row: Any) -> None:
+        # A live `TiendaNubeProduct` row, or the `ProductSnapshot` the cache and the
+        # Blob fallback hold — both expose the same attributes.
         self._row = row
         self._media_cache: Optional[list[RemoteMedia]] = None
 
@@ -255,35 +257,94 @@ def _published_query():
     return TiendaNubeProduct.query.filter_by(published=True).order_by(TiendaNubeProduct.tn_id.asc())
 
 
+def _published_snapshots() -> tuple[Any, ...]:
+    """The published catalogue as detached data, from the cache when it is fresh.
+
+    One query per process per TTL instead of two or three per request — and when
+    Postgres refuses connections, the last snapshot written to the Blob store, so the
+    storefront keeps selling instead of returning 500s.
+    """
+    from sqlalchemy.exc import SQLAlchemyError
+
+    from app.services import catalog_cache, catalog_snapshot
+
+    cached = catalog_cache.cached()
+    if cached is not None:
+        if catalog_cache.is_degraded():
+            _mark_degraded()
+        return cached
+
+    try:
+        rows = _published_query().all()
+    except SQLAlchemyError as exc:
+        current_app.logger.error("Catalogue read failed, falling back to snapshot: %s", exc)
+        fallback = [snap for snap in catalog_snapshot.load() if snap.published]
+        _mark_degraded()
+        return catalog_cache.store(fallback, degraded=True)
+
+    return catalog_cache.store(
+        [catalog_snapshot.ProductSnapshot.from_row(row) for row in rows]
+    )
+
+
+def _mark_degraded() -> None:
+    """Flag the request so page_cache does not pin a fallback page on the CDN."""
+    from flask import g, has_request_context
+
+    if has_request_context():
+        g.cache_degraded = True
+
+
 # --- facade (source-dispatching) ---------------------------------------------
 
 
 def get_published() -> list[Any]:
     if is_tiendanube():
-        return [StorefrontProduct(row) for row in _published_query().all()]
+        return [StorefrontProduct(snap) for snap in _published_snapshots()]
     return ProductRepository.get_published()
 
 
 def get_by_id(product_id: int) -> Any:
     if is_tiendanube():
-        row = TiendaNubeProduct.query.filter_by(tn_id=int(product_id)).one_or_none()
+        from app.services import catalog_cache
+
+        snap = catalog_cache.cached_by_id(int(product_id))
+        if snap is None:
+            # Warming the whole catalogue is one query for any number of lookups: a
+            # cart of N lines used to be N round-trips to Neon.
+            snap = next(
+                (s for s in _published_snapshots() if s.tn_id == int(product_id)), None
+            )
+        if snap is not None:
+            return StorefrontProduct(snap)
+        # Unpublished products are not in the snapshot; the PDP still has to find them
+        # to decide between a 404 and a redirect.
+        from sqlalchemy.exc import SQLAlchemyError
+
+        try:
+            row = TiendaNubeProduct.query.filter_by(tn_id=int(product_id)).one_or_none()
+        except SQLAlchemyError:
+            return None
         return StorefrontProduct(row) if row is not None else None
     return ProductRepository.get_by_id(product_id)
 
 
 def get_published_by_category(category: str) -> list[Any]:
     if is_tiendanube():
-        rows = _published_query().filter_by(category=category).all()
-        return [StorefrontProduct(row) for row in rows]
+        return [
+            StorefrontProduct(snap)
+            for snap in _published_snapshots()
+            if snap.category == category
+        ]
     return ProductRepository.get_published_by_category(category)
 
 
 def published_categories() -> list[str]:
     if is_tiendanube():
         seen: list[str] = []
-        for row in _published_query().all():
-            if row.category and row.category not in seen:
-                seen.append(row.category)
+        for snap in _published_snapshots():
+            if snap.category and snap.category not in seen:
+                seen.append(snap.category)
         return seen
     return ProductRepository.published_categories()
 

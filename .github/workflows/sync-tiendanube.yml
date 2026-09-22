@@ -1,8 +1,14 @@
-# Hourly Tienda Nube mirror sync.
+# On-demand Tienda Nube mirror sync.
 #
 # The app used to do this from a daemon thread inside gunicorn, which needs a process
 # that outlives the request. Driving it from here instead keeps the cadence in version
 # control, works on any host, and does not depend on a plan's cron limits.
+#
+# There is no schedule on purpose. Every connection wakes the Neon compute, which then
+# stays up for five more minutes, so an hourly run burned CU-hours around the clock for
+# visits that never happened — that is what exhausted the free tier on 2026-09-22. The
+# mirror is kept current by the Tienda Nube webhooks (product/created, product/updated,
+# product/deleted); this workflow is the manual reconciliation for whatever they miss.
 #
 # Required repo secrets (Settings -> Secrets and variables -> Actions):
 #   SYNC_TN_URL     the deployment's endpoint, e.g. https://gluckbags.com/internal/sync-tn
@@ -10,12 +16,9 @@
 name: Sync Tienda Nube
 
 on:
-  schedule:
-    - cron: "0 * * * *"
-  # So a stale mirror can be fixed without waiting for the next hour.
   workflow_dispatch:
 
-# A slow sync must not overlap with the next hour's run.
+# Two runs fired back to back must not overlap.
 concurrency:
   group: sync-tiendanube
   cancel-in-progress: false
@@ -36,7 +39,7 @@ jobs:
           fi
 
           # --max-time: a full resync is bounded; hanging until the job timeout would
-          # hold the concurrency group and block the next hour's run too.
+          # hold the concurrency group and block the next run too.
           http_code=$(curl -sS --max-time 300 \
             -H "Authorization: Bearer ${CRON_SECRET}" \
             -o response.json -w "%{http_code}" \
