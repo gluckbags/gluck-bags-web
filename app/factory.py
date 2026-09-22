@@ -210,12 +210,13 @@ def _configure_database(app: Flask, data_dir: str) -> None:
         # instance freezes; the provider's pooler recycles). Without pre-ping, the
         # first query after an idle period fails instead of reconnecting.
         "pool_pre_ping": True,
-        # Modest: many short-lived instances each holding a big pool is how a serverless
-        # app exhausts a Postgres connection limit. The provider's pooled endpoint is
-        # what does the real pooling.
-        "pool_size": 5,
-        "max_overflow": 5,
-        "pool_recycle": 300,
+        # Deliberately tiny. Neon bills the time its compute stays up, and it only
+        # suspends once nothing is connected — a pool holding an idle connection keeps
+        # the meter running between requests. The provider's pooled endpoint does the
+        # real pooling, so there is nothing to gain by holding connections here.
+        "pool_size": 1,
+        "max_overflow": 1,
+        "pool_recycle": 60,
     }
 
 
@@ -451,14 +452,10 @@ def create_app() -> Flask:
 
     @app.context_processor
     def inject_globals() -> dict[str, Any]:
-        # Cart item count for the header badge — read straight from the session
-        # (no DB), and never let a cart hiccup break page rendering.
-        try:
-            from app.services import cart_service
-
-            cart_count = cart_service.count()
-        except Exception:  # noqa: BLE001 — the badge is cosmetic; degrade to 0
-            cart_count = 0
+        # Nothing here may touch the session: that makes Flask add `Vary: Cookie`, and
+        # Vercel refuses to cache a response whose Vary names Cookie — every visit would
+        # go back to hitting Postgres. The header's cart badge is hydrated by cart.js
+        # for that reason.
         from app import content
 
         return {
@@ -472,7 +469,6 @@ def create_app() -> Flask:
             "site_url": app.config["SITE_URL"],
             # Bare host (no scheme), for the Umami data-domains scope.
             "site_host": urlsplit(app.config["SITE_URL"]).netloc,
-            "cart_count": cart_count,
         }
 
     with app.app_context():
@@ -488,6 +484,13 @@ def create_app() -> Flask:
 
         if app.config["AUTO_INIT_DB"]:
             _initialize_schema(data_dir, seed_initial_products)
+
+        # Before register_content: Flask runs after_request hooks in reverse
+        # registration order, so this one runs AFTER sitecopy's and can see the
+        # `no-store` it puts on the editor's responses.
+        from app.services.page_cache import register_page_cache
+
+        register_page_cache(app)
 
         # Editable copy first: every template below renders through `t()`. The visual
         # editor at /admin/content is mounted by flask-sitecopy inside register_content.

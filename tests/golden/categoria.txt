@@ -25,7 +25,6 @@ Materia
 Nosotras
 Comprar
 [aria-label] Abrir carrito
-0
 [aria-label] Abrir menú
 Colección
 Bolsos

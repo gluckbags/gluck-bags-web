@@ -76,6 +76,33 @@
     });
   }
 
+  /* ---- badge hydration ----
+     The page HTML is shared by everyone (it is cached on the CDN), so the badge cannot
+     come from the server: reading the cart there touches the session, which makes Flask
+     send `Vary: Cookie` and Vercel refuse to cache the page. The count is mirrored here
+     on every cart response and replayed on load; opening the drawer refetches the real
+     cart and corrects it. */
+  const COUNT_KEY = "gluck.cart.count";
+
+  function rememberCount(count) {
+    try {
+      window.localStorage.setItem(COUNT_KEY, String(count));
+    } catch (_) {
+      /* private mode or storage disabled — the badge simply stays empty */
+    }
+  }
+
+  function hydrateBadge() {
+    let stored = null;
+    try {
+      stored = window.localStorage.getItem(COUNT_KEY);
+    } catch (_) {
+      return;
+    }
+    const count = parseInt(stored, 10);
+    if (count > 0) updateBadges(count);
+  }
+
   /* ---- drawer rendering ---- */
   function lineHTML(it) {
     // Escape EVERY interpolated value (not just title): it.image comes from the
@@ -150,6 +177,7 @@
   function applyCart(cart) {
     if (!cart) return;
     updateBadges(cart.count);
+    rememberCount(cart.count);
     renderDrawer(cart);
     syncPage(cart);
   }
@@ -277,4 +305,6 @@
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && drawer.classList.contains("open")) closeDrawer();
   });
+
+  hydrateBadge();
 })();
