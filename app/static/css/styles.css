@@ -531,7 +531,10 @@ body.solid-header .site-header .menu-toggle span { background: var(--ink); }
     object-fit: cover;
     transition: transform 1s var(--ease);
 }
-.cat-card:hover .cat-media img { transform: scale(1.07); }
+/* Card hover effects are gated to real pointers: on touch, iOS Safari treats a
+   :hover that reveals content (the arrow/badge) as a first-tap state, so the card
+   needed two taps to open. */
+@media (hover: hover) { .cat-card:hover .cat-media img { transform: scale(1.07); } }
 .cat-media::after {
     content: "";
     position: absolute;
@@ -540,7 +543,7 @@ body.solid-header .site-header .menu-toggle span { background: var(--ink); }
     opacity: 0;
     transition: opacity 0.5s var(--ease);
 }
-.cat-card:hover .cat-media::after { opacity: 1; }
+@media (hover: hover) { .cat-card:hover .cat-media::after { opacity: 1; } }
 .cat-index {
     position: absolute;
     top: 0.85rem; left: 0.9rem;
@@ -564,7 +567,7 @@ body.solid-header .site-header .menu-toggle span { background: var(--ink); }
     transform: translateY(8px) scale(0.9);
     transition: all 0.45s var(--ease);
 }
-.cat-card:hover .cat-arrow { opacity: 1; transform: none; }
+@media (hover: hover) { .cat-card:hover .cat-arrow { opacity: 1; transform: none; } }
 .cat-info {
     display: flex;
     align-items: baseline;
@@ -579,7 +582,7 @@ body.solid-header .site-header .menu-toggle span { background: var(--ink); }
     font-size: 1.5rem;
     transition: color 0.3s var(--ease);
 }
-.cat-card:hover .cat-name { color: var(--cognac); }
+@media (hover: hover) { .cat-card:hover .cat-name { color: var(--cognac); } }
 .cat-tag {
     font-size: 0.7rem;
     letter-spacing: 0.12em;
@@ -662,7 +665,7 @@ body.solid-header .site-header .menu-toggle span { background: var(--ink); }
     object-fit: cover;
     transition: transform 1s var(--ease), filter 0.6s var(--ease);
 }
-.product:hover .product-media img { transform: scale(1.05); }
+@media (hover: hover) { .product:hover .product-media img { transform: scale(1.05); } }
 .product-media::after {
     content: "";
     position: absolute;
@@ -671,7 +674,7 @@ body.solid-header .site-header .menu-toggle span { background: var(--ink); }
     opacity: 0;
     transition: opacity 0.5s var(--ease);
 }
-.product:hover .product-media::after { opacity: 1; }
+@media (hover: hover) { .product:hover .product-media::after { opacity: 1; } }
 .product-badge {
     position: absolute;
     left: 50%; bottom: 1.2rem;
@@ -688,7 +691,7 @@ body.solid-header .site-header .menu-toggle span { background: var(--ink); }
     z-index: 2;
     transition: all 0.5s var(--ease);
 }
-.product:hover .product-badge { opacity: 1; transform: translate(-50%, 0); }
+@media (hover: hover) { .product:hover .product-badge { opacity: 1; transform: translate(-50%, 0); } }
 .product-info {
     display: flex;
     align-items: center;
@@ -703,7 +706,7 @@ body.solid-header .site-header .menu-toggle span { background: var(--ink); }
     line-height: 1.1;
     transition: color 0.3s var(--ease);
 }
-.product:hover .product-name { color: var(--cognac); }
+@media (hover: hover) { .product:hover .product-name { color: var(--cognac); } }
 .product-cat {
     font-size: 0.66rem;
     letter-spacing: 0.16em;
@@ -717,7 +720,7 @@ body.solid-header .site-header .menu-toggle span { background: var(--ink); }
     opacity: 0;
     transition: all 0.4s var(--ease);
 }
-.product:hover .product-arrow { opacity: 1; transform: none; color: var(--cognac); }
+@media (hover: hover) { .product:hover .product-arrow { opacity: 1; transform: none; color: var(--cognac); } }
 
 /* ============================================================
    MATERIA (video band)
@@ -1015,7 +1018,7 @@ nexttech-footer {
     color: var(--ink);
     white-space: nowrap;
 }
-.product:hover .product-price { color: var(--cognac); }
+@media (hover: hover) { .product:hover .product-price { color: var(--cognac); } }
 
 .shop-empty {
     text-align: center;

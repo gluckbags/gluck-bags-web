@@ -132,3 +132,51 @@ def test_lazy_background_video_loads_when_scrolled_into_view(
 
     assert target.evaluate("v => v.dataset.loaded") == "1"
     assert target.evaluate("v => v.querySelectorAll('source').length") > 0
+
+
+def _badge_opacity(page: Page) -> float:
+    return float(
+        page.locator("#shop .product-badge").first.evaluate("el => getComputedStyle(el).opacity")
+    )
+
+
+def test_home_product_card_opens_detail_with_a_single_tap(
+    admin_live_server: tuple[str, str], browser: Browser
+) -> None:
+    """On touch, a :hover that reveals the card badge made iOS Safari spend the
+    first tap on the hover state, so the image needed two taps. The reveal must
+    not apply without a real pointer, and one tap on the image opens the PDP."""
+    base_url, _ = admin_live_server
+    context = browser.new_context(viewport=PHONE_VIEWPORT, has_touch=True, is_mobile=True)
+    page = context.new_page()
+    page.set_default_timeout(DEFAULT_TIMEOUT_MS)
+    try:
+        page.goto(f"{base_url}/", wait_until="load")
+        assert page.evaluate("matchMedia('(hover: hover)').matches") is False
+
+        card = page.locator("#shop .product").first
+        href = card.get_attribute("href")
+        card.scroll_into_view_if_needed()
+        card.hover()
+        assert _badge_opacity(page) == 0
+
+        card.locator(".product-media img").tap()
+        expect(page).to_have_url(f"{base_url}{href}")
+    finally:
+        context.close()
+
+
+def test_home_product_card_hover_still_reveals_badge_on_desktop(
+    admin_live_server: tuple[str, str], page: Page
+) -> None:
+    base_url, _ = admin_live_server
+    page.set_viewport_size(DESKTOP_VIEWPORT)
+    page.goto(f"{base_url}/", wait_until="load")
+
+    card = page.locator("#shop .product").first
+    card.scroll_into_view_if_needed()
+    card.hover()
+    # Waits out the 0.5s opacity transition.
+    page.wait_for_function(
+        "getComputedStyle(document.querySelector('#shop .product-badge')).opacity === '1'"
+    )
