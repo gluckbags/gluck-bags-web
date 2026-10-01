@@ -272,7 +272,7 @@ GLOBAL = Group(
                 TextField(
                     "footer.copyright",
                     "Línea de copyright",
-                    "© {year} {brand}. Todos los derechos reservados.",
+                    "© {year} {brand} · Gluck Bags. Todos los derechos reservados.",
                     hint="{year} se reemplaza por el año actual.",
                 ),
                 TextField("footer.back_to_top", "Volver arriba", "Volver arriba ↑"),
@@ -819,12 +819,17 @@ SEO = Group(
             key="home",
             title="Portada",
             fields=(
-                TextField("seo.home.title", "Título en Google", "{brand} · {tagline}"),
+                TextField(
+                    "seo.home.title",
+                    "Título en Google",
+                    "{brand} (Gluck Bags) · Carteras de cuero vegano hechas a mano",
+                    hint="Lo ideal es hasta 60 caracteres, con la marca al principio.",
+                ),
                 TextField(
                     "seo.home.description",
                     "Descripción en Google",
-                    "{brand} — {tagline}. Carteras y bolsos de cuero vegano, hechos a mano con "
-                    "un diseño minimalista y atemporal.",
+                    "{brand} (Gluck Bags): carteras y bolsos de cuero vegano hechos a mano en "
+                    "Argentina. Diseño de autor, minimalista y sin costuras.",
                     type="text",
                     hint="Lo ideal es entre 120 y 160 caracteres.",
                 ),
@@ -860,6 +865,13 @@ SEO = Group(
                     "Bolsos y carteras de cuero vegano hechos a mano en Argentina, con "
                     "diseño minimalista y atemporal.",
                     type="text",
+                ),
+                TextField(
+                    "seo.organization.alternate_names",
+                    "Otras formas de escribir la marca",
+                    "Gluck, Gluck Bags, Glück",
+                    hint="Separadas por coma. Así Google sabe que quien busca "
+                    "\"gluck\" o \"gluck bags\" está buscando esta marca.",
                 ),
                 TextField(
                     "seo.product.description_fallback",

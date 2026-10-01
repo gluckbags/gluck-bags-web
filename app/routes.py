@@ -88,6 +88,7 @@ def register_routes(app: Flask) -> None:
     def index() -> str:
         site_url = app.config["SITE_URL"]
         brand = content.brand()
+        alternate_names = content.t_plain("seo.organization.alternate_names")
         jsonld = dump_jsonld(
             [
                 organization_jsonld(
@@ -95,8 +96,9 @@ def register_routes(app: Flask) -> None:
                     brand=brand,
                     instagram=content.instagram_url(),
                     description=str(content.t("seo.organization.description")),
+                    alternate_names=alternate_names,
                 ),
-                website_jsonld(site_url, brand=brand),
+                website_jsonld(site_url, brand=brand, alternate_names=alternate_names),
             ]
         )
         # Categories that actually have published products, so the home grid can
