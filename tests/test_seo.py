@@ -14,6 +14,7 @@ from app.seo import (
     breadcrumb_jsonld,
     category_breadcrumb_jsonld,
     organization_jsonld,
+    parse_alternate_names,
     product_jsonld,
     website_jsonld,
 )
@@ -62,6 +63,16 @@ def test_organization_has_id_contactpoint_and_country() -> None:
     # Must be a value from Google's documented enum (not "customer support").
     assert cp["contactType"] == "customer service"
     assert "instagram.com" in cp["url"]
+
+
+def test_alternate_names_are_trimmed_deduped_and_exclude_the_brand() -> None:
+    assert parse_alternate_names(" Gluck , ,Gluck Bags, Gluck, GLÜCK", "GLÜCK") == [
+        "Gluck",
+        "Gluck Bags",
+    ]
+    # Cleared in the admin: no alternateName at all, not the defaults.
+    assert "alternateName" not in organization_jsonld(SITE, alternate_names="")
+    assert "alternateName" not in website_jsonld(SITE, alternate_names=" , ")
 
 
 def test_product_has_stable_sku() -> None:

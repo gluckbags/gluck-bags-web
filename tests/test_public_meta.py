@@ -92,7 +92,7 @@ def test_home_open_graph_and_twitter_card(client: FlaskClient) -> None:
         html,
         key="og:title",
         attr="property",
-        content=f"{_BRAND} · Bolsos minimalistas de cuero vegano",
+        content=f"{_BRAND} (Gluck Bags) · Carteras de cuero vegano hechas a mano",
     )
     # Absolute og:image so crawlers can fetch it without resolving relatives.
     assert _has_meta(
@@ -138,6 +138,25 @@ def test_home_canonical_and_structured_data(client: FlaskClient) -> None:
     html = client.get("/").get_data(as_text=True)
     assert _canonical_of(html) == "https://gluckbags.com/"
     assert set(_jsonld_types(html)) >= {"Organization", "WebSite"}
+
+
+def test_home_ties_the_plain_spelling_to_the_brand(client: FlaskClient) -> None:
+    """People search "gluck" without the umlaut: the home title says it in plain
+    text, and Organization + WebSite declare it as an alternateName."""
+    import json
+
+    html = client.get("/").get_data(as_text=True)
+    title = re.search(r"<title>(.*?)</title>", html, re.S).group(1)
+    assert "Gluck Bags" in title
+    blocks = re.findall(r'<script type="application/ld\+json">(.*?)</script>', html, re.S)
+    nodes = {
+        obj["@type"]: obj
+        for block in blocks
+        for obj in (json.loads(block) if block.strip().startswith("[") else [json.loads(block)])
+    }
+    for kind in ("Organization", "WebSite"):
+        assert {"Gluck", "Gluck Bags"} <= set(nodes[kind]["alternateName"])
+    assert nodes["WebSite"]["publisher"] == {"@id": nodes["Organization"]["@id"]}
 
 
 def test_query_params_collapse_to_clean_canonical(client: FlaskClient) -> None:

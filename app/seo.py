@@ -24,6 +24,20 @@ ORGANIZATION_DESCRIPTION = (
     "con diseño minimalista y atemporal."
 )
 HOME_BREADCRUMB = "Inicio"
+# People search the brand without the umlaut ("gluck", "gluck bags"). Google reads
+# alternateName to pick the SERP site name and to tie those spellings to this entity.
+ALTERNATE_NAMES = "Gluck, Gluck Bags, Glück"
+
+
+def parse_alternate_names(raw: str | None, brand: str) -> list[str]:
+    """Split the editable comma-separated list, dropping blanks, repeats and the
+    brand itself (an alternateName equal to `name` adds nothing)."""
+    names: list[str] = []
+    for part in (ALTERNATE_NAMES if raw is None else raw).split(","):
+        name = part.strip()
+        if name and name != brand and name not in names:
+            names.append(name)
+    return names
 
 
 def dump_jsonld(obj: Any) -> str:
@@ -46,15 +60,17 @@ def organization_jsonld(
     brand: str | None = None,
     instagram: str | None = None,
     description: str | None = None,
+    alternate_names: str | None = None,
 ) -> dict[str, Any]:
     # Stable @id so the brand entity consolidates across pages (products can point
     # their breadcrumb/brand back at this node). addressCountry + contactPoint are
     # the verifiable trust signals we can assert without inventing data.
-    return {
+    brand = brand or BRAND
+    data: dict[str, Any] = {
         "@context": "https://schema.org",
         "@type": "Organization",
         "@id": f"{site_url}/#organization",
-        "name": brand or BRAND,
+        "name": brand,
         "url": f"{site_url}/",
         "logo": f"{site_url}{_LOGO}",
         # `or` would resurrect the constant for a description the shop
@@ -69,15 +85,28 @@ def organization_jsonld(
         },
         "sameAs": [instagram or INSTAGRAM],
     }
+    names = parse_alternate_names(alternate_names, brand)
+    if names:
+        data["alternateName"] = names
+    return data
 
 
-def website_jsonld(site_url: str, brand: str | None = None) -> dict[str, Any]:
-    return {
+def website_jsonld(
+    site_url: str, brand: str | None = None, alternate_names: str | None = None
+) -> dict[str, Any]:
+    brand = brand or BRAND
+    data: dict[str, Any] = {
         "@context": "https://schema.org",
         "@type": "WebSite",
-        "name": brand or BRAND,
+        "name": brand,
         "url": f"{site_url}/",
+        "inLanguage": "es-AR",
+        "publisher": {"@id": f"{site_url}/#organization"},
     }
+    names = parse_alternate_names(alternate_names, brand)
+    if names:
+        data["alternateName"] = names
+    return data
 
 
 def absolute_url(url: str | None, site_url: str) -> str | None:

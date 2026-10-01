@@ -1,6 +1,6 @@
 [content] width=device-width, initial-scale=1.0
 Página no encontrada · GLÜCK
-[content] GLÜCK — Bolsos minimalistas de cuero vegano. Carteras y bolsos de cuero vegano, hechos a mano con un diseño minimalista y atemporal.
+[content] GLÜCK (Gluck Bags): carteras y bolsos de cuero vegano hechos a mano en Argentina. Diseño de autor, minimalista y sin costuras.
 [content] noindex
 [aria-label] GLÜCK inicio
 GLÜCK
@@ -49,6 +49,6 @@ Instagram
 [aria-label] Legales
 Términos
 Privacidad
-© 2026 GLÜCK. Todos los derechos reservados.
+© 2026 GLÜCK · Gluck Bags. Todos los derechos reservados.
 Volver arriba ↑
 Cuero vegano · Hecho a mano
